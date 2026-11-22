@@ -14,7 +14,7 @@ A teaching MCP server built live at the **MCP Africa Symposium 2026 Master Class
 Each branch builds on the one before it. `main` is the same as stage 1.
 
 ```bash
-git clone <this repo> && cd <repo>
+git clone https://github.com/AppimateSA/mcp-masterclass && cd mcp-masterclass
 git checkout stage-1-basic-mcp   # or any stage
 npm install
 npm run dev                      # http://localhost:3000/api/mcp
