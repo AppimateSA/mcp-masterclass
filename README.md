@@ -56,3 +56,47 @@ npm run inspector                 # MCP Inspector UI → connect to http://local
 Pick your team's workflow (agriculture, health or finance). Replace the data file and
 add **one tool, one resource and one prompt** of your own. Keep every result carrying
 `source` and `asOf`.
+
+---
+
+## Stage 2: deploy to Vercel
+
+What changed from stage 1:
+
+- `app/api/mcp/route.ts`: `maxDuration`, name and version from `lib/version.ts`
+- `app/api/health/route.ts`: a health check for uptime monitors (never point those at `/api/mcp`)
+- `instrumentation.ts`: OpenTelemetry via `mcp-handler/otel`, so each tool call shows up as a span in Vercel Observability
+- `vercel.json`: functions run in `cpt1` (Cape Town). The default is `iad1` (Washington, D.C.), which adds a transatlantic round trip to every tool call for South African users
+
+### Deploy
+
+```bash
+npm i -g vercel
+vercel login
+vercel            # preview deployment
+vercel --prod     # production: https://<project>.vercel.app
+```
+
+Or import the GitHub repo at vercel.com/new and pick this branch. No environment variables are needed for stages 1 to 3.
+
+Check it:
+
+```bash
+curl https://<project>.vercel.app/api/health
+MCP_URL=https://<project>.vercel.app/api/mcp npm run smoke
+MCP_URL=https://<project>.vercel.app/api/mcp bash scripts/curl-demo.sh
+```
+
+### Connect a client
+
+| Client | How |
+|---|---|
+| Claude (web, desktop) | Settings → Connectors → Add custom connector → `https://<project>.vercel.app/api/mcp` |
+| VS Code / Cursor | Add to `.vscode/mcp.json` or `~/.cursor/mcp.json`: `{ "servers": { "agri-prices": { "type": "http", "url": "https://<project>.vercel.app/api/mcp" } } }` |
+| MCP Inspector | `npm run inspector`, transport "Streamable HTTP", paste the URL |
+
+### Why serverless fits MCP 2026-07-28
+
+The 2026-07-28 spec dropped the `initialize` handshake and the `Mcp-Session-Id` header. Each request
+carries its own protocol version and client info, so any request can land on any instance. That is
+how Vercel Functions scale: no sticky sessions and no Redis needed just to hold sessions.
