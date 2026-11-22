@@ -3,7 +3,7 @@
   "name": "io.github.YOUR-GITHUB-USERNAME/agri-prices",
   "title": "Agri Prices (MCP Africa Master Class)",
   "description": "Sample fresh-produce prices (ZAR/kg) for five South African markets. Teaching server.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "repository": {
     "url": "https://github.com/YOUR-GITHUB-USERNAME/YOUR-REPO",
     "source": "github"

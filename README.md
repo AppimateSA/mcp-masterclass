@@ -153,3 +153,83 @@ GitHub OIDC (no stored secret), sets the version from the tag and publishes.
 - Versions are immutable: bump the version for every publish.
 - For an npm/PyPI package (stdio) instead of a remote, add `"mcpName"` to `package.json` (or `mcp-name:` to the README) so the registry can verify you own the package.
 - The registry is still in preview; data resets can happen.
+
+---
+
+## Stage 4: Sign in with Google, then sell it
+
+Once a server is public and listed, you need to know **who** is calling before you can do anything
+commercial. Identity is what makes the rest possible:
+
+| Without identity | With identity (stage 4) |
+|---|---|
+| Rate-limit by IP (unfair: campuses and mobile carriers share IPs) | Rate-limit per customer, by plan |
+| Logs say "someone called get_price" | Audit trail: customer, client app, tool, outcome, latency |
+| No way to charge | Usage metered per customer per month, ready for invoicing |
+
+### How the auth works
+
+Google is only the identity provider. It can't be the MCP authorization server by itself: it doesn't
+accept MCP client registration (CIMD or DCR), and its tokens aren't bound to your server's URL.
+So this app runs a small OAuth 2.1 authorization server that sends the login step to Google:
+
+```
+MCP client ──(1) POST /api/mcp, no token──▶ 401 + WWW-Authenticate: resource_metadata=…
+           ──(2) GET /.well-known/oauth-protected-resource/api/mcp  → "my issuer is <this app>"
+           ──(3) GET /.well-known/oauth-authorization-server         → endpoints, PKCE S256, CIMD
+           ──(4) POST /oauth/register (DCR) or client_id = https URL (CIMD)
+ browser   ──(5) GET /oauth/authorize ──▶ Google sign-in ──▶ /oauth/google/callback
+           ◀─(6) redirect to client with ?code&state&iss
+MCP client ──(7) POST /oauth/token (code + PKCE verifier) → access token, aud = this /api/mcp
+           ──(8) POST /api/mcp  Authorization: Bearer …  → metered tool calls
+```
+
+| File | Role |
+|---|---|
+| `app/api/mcp/route.ts` | `withMcpAuth`: rejects calls without a valid token for **this** resource |
+| `app/.well-known/*` | Discovery (RFC 9728 protected resource, RFC 8414 authorization server) |
+| `app/oauth/register` | Dynamic Client Registration (stateless: the client_id is a signed JWT) |
+| `app/oauth/authorize` | Checks client + redirect URI + PKCE, sends the user to Google |
+| `app/oauth/google/callback` | Verifies Google's id_token, issues our one-time code (with `iss`, RFC 9207) |
+| `app/oauth/token` | Code + PKCE → access/refresh tokens; refresh grant |
+| `lib/commerce/metered.ts` | Identify → limit → run → audit → bill, around every tool |
+| `lib/commerce/plans.ts` | Free and Pro plans, limits and price per call |
+
+### Set up
+
+1. **Google Cloud Console** → APIs & Services → Credentials → Create OAuth client ID → *Web application*.
+   Authorised redirect URIs: `https://<project>.vercel.app/oauth/google/callback` and
+   `http://localhost:3000/oauth/google/callback`. Configure the consent screen (External, Testing,
+   add your testers' emails).
+2. Copy `.env.example` to `.env.local` and fill in `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+   `AUTH_SECRET` (`openssl rand -base64 48`).
+3. On Vercel: Project → Settings → Environment Variables, same values, plus
+   `PUBLIC_BASE_URL=https://<project>.vercel.app`. Add **Upstash Redis** from the Vercel Marketplace
+   so limits and usage are shared across instances. Redeploy.
+4. Bump the version and republish to the registry (stage 3): `git tag v0.4.0 && git push origin v0.4.0`.
+
+### Try it
+
+```bash
+# In Claude: Settings → Connectors → Add custom connector → https://<project>.vercel.app/api/mcp
+# Claude discovers the OAuth endpoints, opens Google sign-in, then calls tools as you.
+# Ask: "What's my usage on agri-prices?"  (calls my_usage)
+
+# Locally, without Google:
+AUTH_SECRET=<same as .env.local> node scripts/dev-token.mjs you@example.com
+MCP_TOKEN=<token> npm run smoke
+```
+
+Call `get_price` 11 times in a minute on the Free plan to see the rate-limit message. The model can
+read it and tell the user what to do. Put your email in `PRO_EMAILS` to see Pro limits and the
+estimated charge in `my_usage`.
+
+### Production notes
+
+- Tokens and registrations are stateless signed JWTs so the demo needs no database. A real service
+  keeps refresh tokens and clients in a database so it can revoke them, and rotates `AUTH_SECRET`.
+- Codes are single-use only across instances when Redis is configured.
+- Use `customerId` (`google:<sub>`) as the billing key, not the email: people change emails.
+- Arguments are hashed in the audit trail, not stored. Keep only what you need (POPIA).
+- To charge, point `BILLING_METER_URL` at a function that forwards usage to your billing provider,
+  and set `plan:<customerId>` to `pro` from that provider's subscription webhook.

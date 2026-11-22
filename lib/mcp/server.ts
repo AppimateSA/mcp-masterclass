@@ -1,12 +1,20 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { CROPS, DATA_AS_OF, DATA_SOURCE, MARKETS, getAllQuotes, getQuote } from "@/lib/data/markets";
+import { recentAudit } from "@/lib/commerce/audit";
+import { usageSummary } from "@/lib/commerce/billing";
+import { customerFrom, metered } from "@/lib/commerce/metered";
+import { planFor } from "@/lib/commerce/plans";
 
 /**
  * The three MCP primitives, one of each kind at minimum:
  *   - Tools     (model-controlled actions):  list_markets, get_price, compare_markets
  *   - Resources (application-controlled data): markets://catalogue
  *   - Prompts   (user-controlled templates):   weekly_price_brief
+ *
+ * Stage 4: every billable tool is wrapped in metered(), which identifies the
+ * customer from the access token, applies their plan's rate limits, writes
+ * the audit trail and records usage for billing. my_usage is free.
  */
 
 const crop = z.enum(CROPS).describe("Crop name, e.g. tomatoes");
@@ -32,15 +40,16 @@ export function registerServer(server: McpServer) {
     {
       title: "List fresh-produce markets",
       description: "List the South African fresh-produce markets this server has prices for.",
+      inputSchema: z.object({}),
       outputSchema: z.object({
         markets: z.array(z.object({ id: z.string(), name: z.string(), province: z.string() })),
       }),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
-    async () => {
+    metered("list_markets", async () => {
       const output = { markets: MARKETS.map((m) => ({ ...m })) };
       return { content: json(output), structuredContent: output };
-    },
+    }),
   );
 
   server.registerTool(
@@ -53,10 +62,10 @@ export function registerServer(server: McpServer) {
       outputSchema: quoteShape,
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
-    async ({ crop, marketId }) => {
+    metered("get_price", async ({ crop, marketId }: { crop: (typeof CROPS)[number]; marketId: string }) => {
       const output = getQuote(crop, marketId as (typeof MARKETS)[number]["id"]);
       return { content: json(output), structuredContent: { ...output } };
-    },
+    }),
   );
 
   server.registerTool(
@@ -75,7 +84,7 @@ export function registerServer(server: McpServer) {
       }),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
-    async ({ crop }) => {
+    metered("compare_markets", async ({ crop }: { crop: (typeof CROPS)[number] }) => {
       const quotes = getAllQuotes(crop).sort((a, b) => a.priceZarPerKg - b.priceZarPerKg);
       const cheapest = quotes[0];
       const dearest = quotes[quotes.length - 1];
@@ -87,7 +96,34 @@ export function registerServer(server: McpServer) {
         quotes,
       };
       return { content: json(output), structuredContent: output };
+    }),
+  );
+
+  server.registerTool(
+    "my_usage",
+    {
+      title: "My plan and usage",
+      description: "Show the signed-in customer's plan, limits, usage this month and recent calls. Free to call.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
     },
+    metered(
+      "my_usage",
+      async (_args: Record<string, never>, ctx) => {
+        const customer = customerFrom(ctx);
+        const plan = await planFor(customer.customerId, customer.email);
+        const usage = await usageSummary(customer.customerId, plan);
+        const recent = (await recentAudit(customer.customerId, 5)).map((e) => ({ ts: e.ts, tool: e.tool, outcome: e.outcome, latencyMs: e.latencyMs }));
+        const output = {
+          customer: { id: customer.customerId, email: customer.email, name: customer.name ?? null },
+          plan: { id: plan.id, label: plan.label, perMinute: plan.perMinute, perDay: plan.perDay, priceZarPerCall: plan.priceZarPerCall },
+          usage,
+          recent,
+        };
+        return { content: json(output), structuredContent: output };
+      },
+      { billable: false },
+    ),
   );
 
   // ── Resources ────────────────────────────────────────────────────────────

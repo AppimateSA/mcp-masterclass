@@ -13,7 +13,12 @@ export default function Home() {
         <li>Tools: list_markets, get_price, compare_markets</li>
         <li>Resource: markets://catalogue</li>
         <li>Prompt: weekly_price_brief</li>
+        <li>Account: my_usage (plan, limits, usage this month)</li>
       </ul>
+      <p>
+        Sign-in: add this server as a connector in your MCP client. It will open Google sign-in. Free plan: 10 calls per
+        minute and 100 per day.
+      </p>
       <p>
         <em>Prices are illustrative sample data, not real market prices.</em>
       </p>
