@@ -1,0 +1,18 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.YOUR-GITHUB-USERNAME/agri-prices",
+  "title": "Agri Prices (MCP Africa Master Class)",
+  "description": "Sample fresh-produce prices (ZAR/kg) for five South African markets. Teaching server.",
+  "version": "0.3.0",
+  "repository": {
+    "url": "https://github.com/YOUR-GITHUB-USERNAME/YOUR-REPO",
+    "source": "github"
+  },
+  "websiteUrl": "https://YOUR-PROJECT.vercel.app",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://YOUR-PROJECT.vercel.app/api/mcp"
+    }
+  ]
+}

@@ -100,3 +100,56 @@ MCP_URL=https://<project>.vercel.app/api/mcp bash scripts/curl-demo.sh
 The 2026-07-28 spec dropped the `initialize` handshake and the `Mcp-Session-Id` header. Each request
 carries its own protocol version and client info, so any request can land on any instance. That is
 how Vercel Functions scale: no sticky sessions and no Redis needed just to hold sessions.
+
+---
+
+## Stage 3: publish to the Official MCP Registry
+
+The registry at `registry.modelcontextprotocol.io` is a **metadata catalogue, not a host**. Your server
+stays on Vercel; the registry stores a `server.json` that tells clients and sub-registries where it
+lives. Ownership is proven by namespace:
+
+| Login method | Namespace you may publish |
+|---|---|
+| `mcp-publisher login github` (or GitHub OIDC in Actions) | `io.github.<your-username-or-org>/*` |
+| DNS or HTTP challenge | `com.yourdomain/*` (reverse-DNS) |
+
+What changed from stage 2: `server.json`, `scripts/configure-registry.mjs`, `.github/workflows/publish-mcp.yml`.
+
+### Publish by hand (in the room)
+
+```bash
+# 1. Point server.json at your namespace and your Vercel deployment
+npm run registry:configure -- <github-username> https://<project>.vercel.app
+
+# 2. Install the publisher CLI (macOS/Linux)
+curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+#    Windows: download mcp-publisher_windows_amd64.tar.gz from the registry's GitHub releases
+
+# 3. Validate, log in with GitHub (device flow), publish
+./mcp-publisher validate
+./mcp-publisher login github
+./mcp-publisher publish
+
+# 4. Find yourself
+curl "https://registry.modelcontextprotocol.io/v0/servers?search=agri-prices"
+```
+
+### Publish from CI (recommended afterwards)
+
+Commit the configured `server.json`, then tag a release:
+
+```bash
+git tag v0.3.0 && git push origin v0.3.0
+```
+
+The workflow checks `/api/health` is live, verifies the publisher binary with Sigstore, logs in with
+GitHub OIDC (no stored secret), sets the version from the tag and publishes.
+
+### Rules worth knowing
+
+- Remote servers **must** be publicly reachable at the URL in `remotes`, and should use Streamable HTTP (SSE is deprecated).
+- `description` is at most 100 characters.
+- Versions are immutable: bump the version for every publish.
+- For an npm/PyPI package (stdio) instead of a remote, add `"mcpName"` to `package.json` (or `mcp-name:` to the README) so the registry can verify you own the package.
+- The registry is still in preview; data resets can happen.
