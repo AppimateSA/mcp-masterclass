@@ -19,7 +19,10 @@ git checkout stage-1-basic-mcp   # or any stage
 npm install
 npm run dev                      # http://localhost:3000/api/mcp
 npm run smoke                    # in a second terminal
+npm run verify                   # checks the stage you have checked out, end to end
 ```
+
+Running the whole demo on a new computer? Follow [DEMO.md](DEMO.md): every stage, in order, with what to show.
 
 > **Sample data.** Prices in `lib/data/markets.ts` are illustrative, not real market prices.
 
