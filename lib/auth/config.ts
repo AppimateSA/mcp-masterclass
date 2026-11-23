@@ -51,7 +51,8 @@ export const env = {
  * the issuer is stable across preview and production deployments.
  */
 export function issuer(req: Request): string {
-  return (process.env.PUBLIC_BASE_URL ?? getPublicOrigin(req)).replace(/\/+$/, "");
+  // `||`, not `??`: a blank PUBLIC_BASE_URL= copied from .env.example must fall back too.
+  return (process.env.PUBLIC_BASE_URL || getPublicOrigin(req)).replace(/\/+$/, "");
 }
 
 /** The protected resource (RFC 8707 / RFC 9728): the MCP endpoint itself. */

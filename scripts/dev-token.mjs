@@ -9,7 +9,7 @@ if (!secret || secret.length < 32) {
   console.error("Set AUTH_SECRET (same value as the dev server's .env.local)");
   process.exit(1);
 }
-const base = (process.env.PUBLIC_BASE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+const base = (process.env.PUBLIC_BASE_URL || "http://localhost:3000").replace(/\/+$/, "");
 if (!/^http:\/\/(localhost|127\.0\.0\.1)/.test(base)) {
   console.error("dev-token only targets a local server. Use the real Google sign-in for deployments.");
   process.exit(1);

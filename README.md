@@ -19,7 +19,10 @@ git checkout stage-1-basic-mcp   # or any stage
 npm install
 npm run dev                      # http://localhost:3000/api/mcp
 npm run smoke                    # in a second terminal
+npm run verify                   # checks the stage you have checked out, end to end
 ```
+
+Running the whole demo on a new computer? Follow [DEMO.md](DEMO.md): every stage, in order, with what to show.
 
 > **Sample data.** Prices in `lib/data/markets.ts` are illustrative, not real market prices.
 
@@ -122,14 +125,14 @@ What changed from stage 2: `server.json`, `scripts/configure-registry.mjs`, `.gi
 # 1. Point server.json at your namespace and your Vercel deployment
 npm run registry:configure -- <github-username> https://<project>.vercel.app
 
-# 2. Install the publisher CLI (macOS/Linux)
-curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+# 2. Install the publisher CLI into ./mcp-publisher (macOS/Linux)
+npm run registry:install
 #    Windows: download mcp-publisher_windows_amd64.tar.gz from the registry's GitHub releases
 
 # 3. Validate, log in with GitHub (device flow), publish
-./mcp-publisher validate
-./mcp-publisher login github
-./mcp-publisher publish
+npm run registry:validate
+npm run registry:login
+npm run registry:publish
 
 # 4. Find yourself
 curl "https://registry.modelcontextprotocol.io/v0/servers?search=agri-prices"
@@ -150,7 +153,10 @@ GitHub OIDC (no stored secret), sets the version from the tag and publishes.
 
 - Remote servers **must** be publicly reachable at the URL in `remotes`, and should use Streamable HTTP (SSE is deprecated).
 - `description` is at most 100 characters.
-- Versions are immutable: bump the version for every publish.
+- Versions are immutable: every submit needs a new version. Submitting again (a rehearsal, then the demo)?
+  `npm run registry:configure -- <github-username> <vercel-url> --version 0.3.1`, then `npm run registry:publish`.
+- `mcp-publisher login github` grants only your personal namespace (`io.github.<username>/*`). For an
+  organization namespace use the GitHub Actions workflow, or `login github --token <classic PAT with read:org>`.
 - For an npm/PyPI package (stdio) instead of a remote, add `"mcpName"` to `package.json` (or `mcp-name:` to the README) so the registry can verify you own the package.
 - The registry is still in preview; data resets can happen.
 
