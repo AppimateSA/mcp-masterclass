@@ -9,9 +9,13 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "smoke": "node scripts/smoke.mjs",
-    "inspector": "npx @modelcontextprotocol/inspector",
+    "inspector": "npx -y @modelcontextprotocol/inspector",
     "registry:configure": "node scripts/configure-registry.mjs",
-    "registry:validate": "mcp-publisher validate"
+    "registry:validate": "./mcp-publisher validate",
+    "verify": "bash scripts/verify.sh",
+    "registry:install": "bash scripts/install-publisher.sh",
+    "registry:login": "./mcp-publisher login github",
+    "registry:publish": "./mcp-publisher publish"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.4.0",
