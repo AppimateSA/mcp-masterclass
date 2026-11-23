@@ -9,7 +9,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "smoke": "node scripts/smoke.mjs",
-    "inspector": "npx @modelcontextprotocol/inspector"
+    "inspector": "npx -y @modelcontextprotocol/inspector",
+    "verify": "bash scripts/verify.sh"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.4.0",
